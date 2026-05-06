@@ -1,32 +1,35 @@
 import os
 import requests
 import psycopg2
+import pandas as pd
 from datetime import datetime, timedelta
 
-# 1. EXTRACT: Get free data (Example: CoinGecko Crypto Price)
-def extract():
+def run_etl():
+    # 1. GET DATA
     url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
-    return requests.get(url).json()['bitcoin']['usd']
+    price = requests.get(url).json()['bitcoin']['usd']
+    now = datetime.now()
 
-# 2. LOAD & TEMP STORAGE (Keep only 4 days)
-def load_to_postgres(price):
-    conn = psycopg2.connect("YOUR_CONNECTION_STRING_HERE")
+    # 2. SAVE TO DATABASE (Supabase)
+    db_url = os.getenv('DB_URL')
+    conn = psycopg2.connect(db_url)
     cur = conn.cursor()
+    cur.execute("CREATE TABLE IF NOT EXISTS crypto (price FLOAT, time TIMESTAMP);")
+    cur.execute("INSERT INTO crypto (price, time) VALUES (%s, %s)", (price, now))
     
-    # Create table if not exists
-    cur.execute("CREATE TABLE IF NOT EXISTS crypto_temps (price FLOAT, created_at TIMESTAMP);")
+    # Keep only 4 days of data
+    cur.execute("DELETE FROM crypto WHERE time < %s", (now - timedelta(days=4),))
     
-    # Insert new data
-    cur.execute("INSERT INTO crypto_temps (price, created_at) VALUES (%s, %s)", (price, datetime.now()))
-    
-    # DELETE data older than 4 days (Your "Temp Checking" requirement)
-    four_days_ago = datetime.now() - timedelta(days=4)
-    cur.execute("DELETE FROM crypto_temps WHERE created_at < %s", (four_days_ago,))
+    # 3. SAVE TO CSV (For Tableau)
+    # We pull the last 4 days from the DB to make a clean file
+    cur.execute("SELECT * FROM crypto ORDER BY time DESC")
+    data = cur.fetchall()
+    df = pd.DataFrame(data, columns=['price', 'time'])
+    df.to_csv("data_for_tableau.csv", index=False)
     
     conn.commit()
     cur.close()
     conn.close()
 
 if __name__ == "__main__":
-    data = extract()
-    load_to_postgres(data)
+    run_etl()

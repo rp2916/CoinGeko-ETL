@@ -1,0 +1,32 @@
+name: Run ETL
+on:
+  schedule:
+    - cron: '0 * * * *' # This runs it every hour automatically
+  workflow_dispatch:   # This adds a "Run" button so you can test it manually
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      - name: Install Libraries
+        run: pip install requests psycopg2-binary pandas
+        
+      - name: Run Script
+        run: python etl_pipeline.py
+        env:
+          DB_URL: ${{ secrets.DB_URL }}
+      
+      - name: Save CSV for Tableau
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git add data_for_tableau.csv
+          git commit -m "Update data for dashboard" || exit 0
+          git push
