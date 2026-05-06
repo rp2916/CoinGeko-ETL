@@ -12,7 +12,7 @@ def run_etl():
 
     # 2. SAVE TO DATABASE (Supabase)
     db_url = os.getenv('DB_URL')
-    conn = psycopg2.connect(db_url)
+    conn = psycopg2.connect(db_url,sslmode='require')
     cur = conn.cursor()
     cur.execute("CREATE TABLE IF NOT EXISTS crypto (price FLOAT, time TIMESTAMP);")
     cur.execute("INSERT INTO crypto (price, time) VALUES (%s, %s)", (price, now))
