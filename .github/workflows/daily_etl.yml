@@ -1,22 +1,23 @@
 name: Run ETL
 on:
   schedule:
-    - cron: '0 * * * *' # This runs it every hour automatically
-  workflow_dispatch:   # This adds a "Run" button so you can test it manually
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4  # Updated version
       
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5 # Updated version
         with:
           python-version: '3.9'
           
       - name: Install Libraries
-        run: pip install requests psycopg2-binary pandas
+        run: |
+          pip install requests psycopg2-binary pandas
         
       - name: Run Script
         run: python etl_pipeline.py
@@ -27,6 +28,8 @@ jobs:
         run: |
           git config --global user.name 'GitHub Action'
           git config --global user.email 'action@github.com'
+          # This line prevents error if file doesn't exist yet
+          touch data_for_tableau.csv 
           git add data_for_tableau.csv
-          git commit -m "Update data for dashboard" || exit 0
+          git commit -m "Update data for dashboard" || echo "No changes to commit"
           git push
